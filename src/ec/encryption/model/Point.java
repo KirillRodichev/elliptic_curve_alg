@@ -15,7 +15,7 @@ public class Point {
     private int z;
 
     public Point getNull() {
-        return new Point(toBigInteger(0), toBigInteger(1), 0, this.m);
+        return new Point(BigInteger.ZERO, toBigInteger(1), 0, this.m);
     }
 
     public static void initCoefficientA(BigInteger a) {
@@ -34,7 +34,11 @@ public class Point {
     }
 
     public Point negative() {
-        return new Point(this.x, this.y.negate(), this.z, this.m);
+        if (!this.equals(this.getNull())) {
+            return new Point(this.x, this.y.negate(), this.z, this.m);
+        } else {
+            return this.getNull();
+        }
     }
 
     public Point doublePoint() {
@@ -48,26 +52,27 @@ public class Point {
         if (this.z == 0) return p;
         if (p.z == 0) return this;
         if (this.x.equals(p.x)) {
-            if (this.y.equals(p.y.negate())) {
+            if (this.y.add(p.y).mod(this.m).equals(BigInteger.ZERO)) {
                 return this.getNull();
             }
             slope = this.x
-                    .pow(2).mod(this.m)
+                    .modPow(toBigInteger(2), this.m)
                     .multiply(toBigInteger(3)).mod(this.m)
                     .add(a).mod(this.m)
-                    .multiply(this.y.multiply(toBigInteger(2)).pow(-1)).mod(this.m);
+                    .multiply(this.y.multiply(toBigInteger(2)).modPow(toBigInteger(-1), this.m)).mod(this.m);
         } else {
             slope = p.y
-                    .add(this.y.negate()).mod(this.m)
-                    .multiply(p.x.add(this.x.negate())).pow(-1).mod(this.m);
+                    .subtract(this.y).mod(this.m)
+                    .multiply(p.x.subtract(this.x).modPow(toBigInteger(-1), this.m))
+                    .mod(this.m);
         }
         x3 = slope
-                .pow(2).mod(this.m)
-                .add(this.x.negate()).mod(this.m)
-                .add(p.x.negate()).mod(this.m);
+                .modPow(toBigInteger(2), this.m)
+                .subtract(this.x).mod(this.m)
+                .subtract(p.x).mod(this.m);
         y3 = slope
-                .multiply(this.x.add(x3.negate()).mod(this.m)).mod(this.m)
-                .add(this.y.negate()).mod(this.m);
+                .multiply(this.x.subtract(x3).mod(this.m)).mod(this.m)
+                .subtract(this.y).mod(this.m);
         return new Point(x3, y3, 1, this.m);
     }
 
@@ -76,7 +81,7 @@ public class Point {
         Point r = this.getNull();
         while (multiplier > 0) {
             if (toBigInteger(multiplier).mod(toBigInteger(2)).equals(toBigInteger(1))) {
-                r.add(q);
+                r = r.add(q);
             }
             q = q.doublePoint();
             multiplier /= 2;
@@ -91,9 +96,9 @@ public class Point {
         int[] iBinMultiplier = getTernaryExpansion(strToIntegersArray(sBinMultiplier));
         for (int value : iBinMultiplier) {
             if (value == 1) {
-                r.add(q);
+                r = r.add(q);
             } else if (value == -1) {
-                r.add(q.negative());
+                r = r.sub(q);
             }
             q = q.doublePoint();
         }
@@ -102,6 +107,10 @@ public class Point {
 
     public boolean equals(Point p) {
         return this.x.equals(p.getX()) && this.y.equals(p.getY()) && (this.z == p.getZ());
+    }
+
+    public String toString() {
+        return "Point(" + this.x + ", " + this.y + ", " + this.z + ")";
     }
 
     public Point sub(Point p) {

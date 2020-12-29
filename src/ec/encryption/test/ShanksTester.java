@@ -15,9 +15,9 @@ public class ShanksTester {
         EllipticCurve e2;
         EllipticCurve e3;
         try {
-            e1 = EllipticCurve.create(toBigInteger(85), toBigInteger(93), toBigInteger(230));
-            e2 = EllipticCurve.create(toBigInteger(10024), toBigInteger(24442), toBigInteger(3234));
-            e3 = EllipticCurve.create(toBigInteger(4575), toBigInteger(9834), toBigInteger(19492));
+            e1 = EllipticCurve.create(toBigInteger(85), toBigInteger(93), toBigInteger(251));
+            e2 = EllipticCurve.create(toBigInteger(109), toBigInteger(24), toBigInteger(151));
+            e3 = EllipticCurve.create(toBigInteger(55), toBigInteger(187), toBigInteger(193));
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
@@ -28,6 +28,7 @@ public class ShanksTester {
         ecs.add(e3);
 
         for (EllipticCurve e : ecs) {
+            System.out.println(e.getOrder() + ", " + e.getPointsList().size());
             if (!e.getOrder().equals(toBigInteger(e.getPointsList().size()))) {
                 throw new RuntimeException(ErrorMessages.SHANKS_TEST_FAILURE);
             }

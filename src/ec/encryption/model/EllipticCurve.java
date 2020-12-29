@@ -26,9 +26,8 @@ public class EllipticCurve {
         if (fieldPower.compareTo(toBigInteger(3)) == -1) {
             throw new RuntimeException(ErrorMessages.FIELD_POWER_EXCEPTION_MSG);
         }
-        if (a.compareTo(fieldPower) == 1 || b.compareTo(fieldPower) == 1) {
-            throw new RuntimeException(ErrorMessages.getCoefficientsExceptionMsg(fieldPower));
-        }
+        a = a.mod(fieldPower);
+        b = b.mod(fieldPower);
         if (hasNoRepeatedRoots(a, b, fieldPower)) {
             List<Point> points = getEllipticCurvePoints(a, b, fieldPower);
             return new EllipticCurve(a, b, fieldPower, points);
@@ -38,60 +37,72 @@ public class EllipticCurve {
     }
 
     public BigInteger getOrder() {
-        BigInteger order = BigInteger.ZERO;
         if (fieldPower.compareTo(toBigInteger(230)) == -1) {
             return getSimpleOrder();
         }
-        BigInteger nonResidue;
-        try {
-            nonResidue = getNonResidue(fieldPower);
-        } catch (Exception e) {
-            throw new RuntimeException(ErrorMessages.NON_RESIDUE_NOT_FOUND_EXCEPTION_MSG);
-        }
-        BigInteger stepPower = toBigInteger(getStepPower(fieldPower.intValue()));
-        BigInteger c = nonResidue
+        BigInteger nonResidue = getNonResidue(fieldPower);
+        int stepPower = getStepPower(fieldPower.intValue());
+        BigInteger distortionParamC = nonResidue
                 .modPow(BigInteger.TWO, fieldPower)
                 .multiply(a)
                 .mod(fieldPower);
-        BigInteger d = nonResidue
+        BigInteger distortionParamD = nonResidue
                 .modPow(toBigInteger(3), fieldPower)
-                .multiply(a)
+                .multiply(b)
                 .mod(fieldPower);
-        BigInteger legendre = toBigInteger(0);
-        while (legendre.equals(toBigInteger(0))) {
+        return getMestreOrder(distortionParamC, distortionParamD, nonResidue, stepPower);
+    }
+
+    /**
+     *
+     * @param distortionParamC Mestre distortion param
+     * @param distortionParamD Mestre distortion param
+     * @param nonResidue non residue modulo finite field power
+     * @param stepPower power for giant and baby steps
+     * @return point order
+     */
+    private BigInteger getMestreOrder(
+            BigInteger distortionParamC,
+            BigInteger distortionParamD,
+            BigInteger nonResidue,
+            int stepPower
+    ) {
+        int legendre = 0;
+        BigInteger order = BigInteger.ZERO;
+        while (order.equals(BigInteger.ZERO)) {
             BigInteger xCoord = toBigInteger(Randomizer.getNumber(fieldPower.intValue()));
-            legendre = getLegendreSymbol(xCoord, fieldPower);
-            if (!legendre.equals(toBigInteger(0))) {
-                if (legendre.equals(toBigInteger(-1))) {
-                    this.a = c;
-                    this.b = d;
+            BigInteger numerator = getLegendreNumerator(xCoord, fieldPower, a, b);
+            legendre = getLegendreSymbol(numerator, fieldPower);
+            if (legendre != 0) {
+                if (legendre == -1) {
+                    this.a = distortionParamC;
+                    this.b = distortionParamD;
                     xCoord = xCoord.multiply(nonResidue).mod(fieldPower);
                 }
                 Point p = getPointByXcoord(xCoord);
-                List<BigInteger> shanksRes = shanks(p);
+                List<BigInteger> babyStepSet = getBabyStepSet(stepPower, p);
+                List<BigInteger> giantStepSet = getGiantStepSet(stepPower, p);
+                List<BigInteger> shanksRes = getShanksIntersection(babyStepSet, giantStepSet);
                 if (shanksRes.size() == 1) {
                     BigInteger shanksOnlyVal = shanksRes.get(0);
-                    BigInteger babyStepInd = getIndex(
-                            shanksOnlyVal,
-                            getBabyStepSet(getStepPower(fieldPower.intValue()), p)
-                    );
-                    BigInteger giantStepInd = getIndex(
-                            shanksOnlyVal,
-                            getGiantStepSet(getStepPower(fieldPower.intValue()), p)
-                    );
+                    BigInteger babyStepInd = getIndex(shanksOnlyVal, babyStepSet);
+                    BigInteger giantStepInd = getIndex(shanksOnlyVal, giantStepSet);
                     BigInteger t = babyStepInd
-                            .add(giantStepInd.multiply(stepPower).mod(fieldPower))
+                            .add(giantStepInd.multiply(toBigInteger(stepPower)).mod(fieldPower))
                             .mod(fieldPower);
-                    Point nullPoint = p.mul(fieldPower.intValue() + 1 + t.intValue());
-                    if (!nullPoint.equals(p.getNull())) {
+                    Point expectedNullPoint = getExpectedNullPoint(p, fieldPower, t);
+                    if (!expectedNullPoint.equals(p.getNull())) {
                         t = babyStepInd
-                                .add(giantStepInd.multiply(stepPower).mod(fieldPower).negate())
+                                .subtract(giantStepInd.multiply(toBigInteger(stepPower)).mod(fieldPower))
                                 .mod(fieldPower);
+                        expectedNullPoint = getExpectedNullPoint(p, fieldPower, t);
+                        if (expectedNullPoint.equals(p.getNull())) {
+                            order = t
+                                    .multiply(toBigInteger(legendre)).mod(fieldPower)
+                                    .add(fieldPower).mod(fieldPower)
+                                    .add(BigInteger.ONE).mod(fieldPower);
+                        }
                     }
-                    t.multiply(legendre).mod(fieldPower)
-                            .add(fieldPower).mod(fieldPower)
-                            .add(BigInteger.ONE).mod(fieldPower);
-                    order = t;
                 }
             }
         }
@@ -99,17 +110,14 @@ public class EllipticCurve {
     }
 
     public Point getRandomPoint() {
-        return this.points.get(Randomizer.getNumber(this.points.size()));
+        return this.points.get(Randomizer.getNumber(this.points.size() - 1));
     }
 
     public List<Point> getPointsList() {
         return this.points;
     }
 
-    private List<BigInteger> shanks(Point p) {
-        int stepPower = getStepPower(fieldPower.intValue());
-        List<BigInteger> babySteps = getBabyStepSet(stepPower, p);
-        List<BigInteger> giantSteps = getGiantStepSet(stepPower, p);
+    private List<BigInteger> getShanksIntersection(List<BigInteger> babySteps, List<BigInteger> giantSteps) {
         return getIntersection(babySteps, giantSteps);
     }
 
@@ -137,7 +145,7 @@ public class EllipticCurve {
         for (
                 BigInteger possibleX = BigInteger.ZERO;
                 possibleX.compareTo(fieldPower) == -1;
-                possibleX.add(BigInteger.ONE)
+                possibleX = possibleX.add(BigInteger.ONE)
         ) {
             BigInteger quantityVal = possibleX
                     .modPow(toBigInteger(3), fieldPower)
@@ -146,7 +154,7 @@ public class EllipticCurve {
             for (
                     BigInteger possibleY = BigInteger.ZERO;
                     possibleY.compareTo(fieldPower) == -1;
-                    possibleY.add(BigInteger.ONE)
+                    possibleY = possibleY.add(BigInteger.ONE)
             ) {
                 if (possibleY.modPow(BigInteger.TWO, fieldPower).equals(quantityVal)) {
                     points.add(new Point(possibleX, possibleY, fieldPower));
@@ -188,16 +196,14 @@ public class EllipticCurve {
     private BigInteger getSimpleOrder() {
         BigInteger res;
         List<BigInteger> xCoords = getXcoords();
-        BigInteger legendreSum = toBigInteger(0);
+        int legendreSum = 0;
         for (BigInteger xCoord : xCoords) {
-            BigInteger numerator = xCoord
-                    .modPow(toBigInteger(3), fieldPower)
-                    .add(xCoord.multiply(a).mod(fieldPower))
-                    .add(b)
-                    .mod(fieldPower);
-            legendreSum = legendreSum.add(getLegendreSymbol(numerator, fieldPower));
+            BigInteger numerator = getLegendreNumerator(xCoord, fieldPower, a, b);
+            legendreSum += getLegendreSymbol(numerator, fieldPower);
         }
-        res = legendreSum.add(fieldPower).mod(fieldPower).add(toBigInteger(1)).mod(fieldPower);
+        res = toBigInteger(legendreSum)
+                .add(fieldPower).mod(fieldPower)
+                .add(toBigInteger(1)).mod(fieldPower);
         return res;
     }
 }

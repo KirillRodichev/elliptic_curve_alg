@@ -50,7 +50,7 @@ public class PointTester {
             new Point(toBigInteger(6), toBigInteger(730), toBigInteger(3623)),
             new Point(toBigInteger(2521), toBigInteger(3601), toBigInteger(3623)),
             new Point(toBigInteger(2277), toBigInteger(502), toBigInteger(3623)),
-            new Point(toBigInteger(3375), toBigInteger(3623), toBigInteger(535)),
+            new Point(toBigInteger(3375), toBigInteger(535), toBigInteger(3623)),
             new Point(toBigInteger(1610), toBigInteger(1851), toBigInteger(3623)),
             new Point(toBigInteger(1753), toBigInteger(2436), toBigInteger(3623)),
             new Point(toBigInteger(2005), toBigInteger(1764), toBigInteger(3623)),
@@ -60,16 +60,8 @@ public class PointTester {
             new Point(toBigInteger(1814), toBigInteger(3480), toBigInteger(3623)),
     };
 
-    /**
-     * Note: don't forget to pass correct values
-     *
-     * @param a constant A (3 for addition & 14 for multiplication)
-     */
-    public PointTester(BigInteger a) {
-        Point.initCoefficientA(a);
-    }
-
     public void testAddition() {
+        Point.initCoefficientA(toBigInteger(3));
         Point[] pointSet = additionTable[0];
         for (int iRow = 0; iRow < pointSet.length; iRow++) {
             for (int iCol = 0; iCol < pointSet.length; iCol++) {
@@ -82,15 +74,22 @@ public class PointTester {
     }
 
     public void testGetNegative() {
+        Point.initCoefficientA(toBigInteger(3));
         Point[] pointSet = additionTable[0];
         for (Point point : pointSet) {
             Point negative = point.negative();
-            if (
-                    !negative.getX().equals(point.getX()) ||
-                    !negative.getY().negate().equals(point.getY()) ||
-                    negative.getZ() != point.getZ()
-            ) {
-                throw new RuntimeException(ErrorMessages.GET_NEGATIVE_TEST_FAILURE);
+            if (!point.equals(point.getNull())) {
+                if (
+                        !negative.getX().equals(point.getX()) ||
+                        !negative.getY().negate().mod(point.getModulus()).equals(point.getY()) ||
+                        negative.getZ() != point.getZ()
+                ) {
+                    throw new RuntimeException(ErrorMessages.GET_NEGATIVE_TEST_FAILURE);
+                }
+            } else {
+                if (!negative.equals(negative.getNull())) {
+                    throw new RuntimeException(ErrorMessages.GET_NEGATIVE_TEST_FAILURE);
+                }
             }
         }
     }
@@ -100,9 +99,12 @@ public class PointTester {
      * multiplier = 947 = 1 + 2 + 16 + 32 + 128 + 256 + 512
      */
     public void testMulByPointDoubling() {
+        Point.initCoefficientA(toBigInteger(14));
         Point p = new Point(toBigInteger(6), toBigInteger(730), toBigInteger(3623));
         for (int power = 0; power < multiplicationTable.length; power++) {
-            if (!p.mul(toBigInteger(2).pow(power).intValue()).equals(multiplicationTable[power])) {
+            int iPower = toBigInteger(2).pow(power).intValue();
+            Point mulRes = p.mul(iPower);
+            if (!mulRes.equals(multiplicationTable[power])) {
                 throw new RuntimeException(ErrorMessages.MULTIPLICATION_TEST_FAILURE);
             }
         }
@@ -113,9 +115,12 @@ public class PointTester {
      * multiplier = 947 = 1 + 2 + 16 + 32 + 128 + 256 + 512
      */
     public void testTernaryMulByPointDoubling() {
+        Point.initCoefficientA(toBigInteger(14));
         Point p = new Point(toBigInteger(6), toBigInteger(730), toBigInteger(3623));
         for (int power = 0; power < multiplicationTable.length; power++) {
-            if (!p.ternaryMul(toBigInteger(2).pow(power).intValue()).equals(multiplicationTable[power])) {
+            int iPower = toBigInteger(2).pow(power).intValue();
+            Point mulRes = p.ternaryMul(iPower);
+            if (!mulRes.equals(multiplicationTable[power])) {
                 throw new RuntimeException(ErrorMessages.TERNARY_MULTIPLICATION_TEST_FAILURE);
             }
         }
@@ -124,8 +129,16 @@ public class PointTester {
     public void testPointGeneration() {
         EllipticCurve e = EllipticCurve.create(toBigInteger(3), toBigInteger(8), toBigInteger(13));
         List<Point> points = new ArrayList<>(Arrays.asList(additionTable[0]));
-        for (int i = 0; i < 50; i++) {
-            if (!points.contains(e.getRandomPoint())) {
+        boolean passed;
+        for (int i = 0; i < 10; i++) {
+            Point randomPoint = e.getRandomPoint();
+            passed = false;
+            for (Point p : points) {
+                if (p.equals(randomPoint)) {
+                    passed = true;
+                }
+            }
+            if (!passed) {
                 throw new RuntimeException(ErrorMessages.POINT_GENERATION_TEST_FAILURE);
             }
         }
