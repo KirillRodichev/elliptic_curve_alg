@@ -5,7 +5,9 @@ import ec.encryption.constants.ErrorMessages;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+import static ec.encryption.model.Randomizer.getRandomXCoord;
 import static ec.encryption.utils.ConvertHelper.toBigInteger;
 import static ec.encryption.utils.ShanksHelper.*;
 
@@ -40,53 +42,25 @@ public class EllipticCurve {
         if (fieldPower.compareTo(toBigInteger(230)) == -1) {
             return getSimpleOrder();
         }
-        BigInteger nonResidue = getNonResidue(fieldPower);
-        int stepPower = getStepPower(fieldPower.intValue());
-        BigInteger distortionParamC = nonResidue
-                .modPow(BigInteger.TWO, fieldPower)
-                .multiply(a)
-                .mod(fieldPower);
-        BigInteger distortionParamD = nonResidue
-                .modPow(toBigInteger(3), fieldPower)
-                .multiply(b)
-                .mod(fieldPower);
-        return getMestreOrder(distortionParamC, distortionParamD, nonResidue, stepPower);
+        return getMestreOrder();
     }
 
-    /**
-     *
-     * @param distortionParamC Mestre distortion param
-     * @param distortionParamD Mestre distortion param
-     * @param nonResidue non residue modulo finite field power
-     * @param stepPower power for giant and baby steps
-     * @return point order
-     */
-    private BigInteger getMestreOrder(
-            BigInteger distortionParamC,
-            BigInteger distortionParamD,
-            BigInteger nonResidue,
-            int stepPower
-    ) {
-        int legendre = 0;
+    private BigInteger getMestreOrder() {
+        int stepPower = getStepPower(fieldPower.intValue());
         BigInteger order = BigInteger.ZERO;
         while (order.equals(BigInteger.ZERO)) {
-            BigInteger xCoord = toBigInteger(Randomizer.getNumber(fieldPower.intValue()));
+            BigInteger xCoord = getRandomXCoord(this.points);
             BigInteger numerator = getLegendreNumerator(xCoord, fieldPower, a, b);
-            legendre = getLegendreSymbol(numerator, fieldPower);
+            int legendre = getLegendreSymbol(numerator, fieldPower);
             if (legendre != 0) {
                 if (legendre == -1) {
-                    this.a = distortionParamC;
-                    this.b = distortionParamD;
-                    xCoord = xCoord.multiply(nonResidue).mod(fieldPower);
+                    xCoord = applyDistortionToEllipticCurve(xCoord);
                 }
                 Point p = getPointByXcoord(xCoord);
-                List<BigInteger> babyStepSet = getBabyStepSet(stepPower, p);
-                List<BigInteger> giantStepSet = getGiantStepSet(stepPower, p);
-                List<BigInteger> shanksRes = getShanksIntersection(babyStepSet, giantStepSet);
-                if (shanksRes.size() == 1) {
-                    BigInteger shanksOnlyVal = shanksRes.get(0);
-                    BigInteger babyStepInd = getIndex(shanksOnlyVal, babyStepSet);
-                    BigInteger giantStepInd = getIndex(shanksOnlyVal, giantStepSet);
+                Map<String, BigInteger> shanksRes = getShanksIntersection(stepPower, p);
+                if (shanksRes != null) {
+                    BigInteger babyStepInd = shanksRes.get(BABY_STEP_INDEX);
+                    BigInteger giantStepInd = shanksRes.get(GIANT_STEP_INDEX);
                     BigInteger t = babyStepInd
                             .add(giantStepInd.multiply(toBigInteger(stepPower)).mod(fieldPower))
                             .mod(fieldPower);
@@ -109,6 +83,20 @@ public class EllipticCurve {
         return order;
     }
 
+    private BigInteger applyDistortionToEllipticCurve(BigInteger xCoord) {
+        BigInteger nonResidue = getNonResidue(fieldPower);
+        BigInteger distortionParamC = nonResidue
+                .modPow(BigInteger.TWO, fieldPower)
+                .multiply(a).mod(fieldPower);
+        BigInteger distortionParamD = nonResidue
+                .modPow(toBigInteger(3), fieldPower)
+                .multiply(b).mod(fieldPower);
+        this.a = distortionParamC;
+        this.b = distortionParamD;
+        this.clone(EllipticCurve.create(distortionParamC, distortionParamD, fieldPower));
+        return xCoord.multiply(nonResidue).mod(fieldPower);
+    }
+
     public Point getRandomPoint() {
         return this.points.get(Randomizer.getNumber(this.points.size() - 1));
     }
@@ -117,8 +105,8 @@ public class EllipticCurve {
         return this.points;
     }
 
-    private List<BigInteger> getShanksIntersection(List<BigInteger> babySteps, List<BigInteger> giantSteps) {
-        return getIntersection(babySteps, giantSteps);
+    private Map<String, BigInteger> getShanksIntersection(int stepPower, Point p) {
+        return getIntersection(stepPower, p);
     }
 
     private Point getPointByXcoord(BigInteger xCoord) {
@@ -163,6 +151,7 @@ public class EllipticCurve {
         }
         return points;
     }
+    //метод Чиполлы
 
     private static void initPoints(BigInteger a) {
         Point.initCoefficientA(a);
@@ -205,5 +194,12 @@ public class EllipticCurve {
                 .add(fieldPower).mod(fieldPower)
                 .add(toBigInteger(1)).mod(fieldPower);
         return res;
+    }
+
+    public void clone(EllipticCurve src) {
+        this.fieldPower = src.fieldPower;
+        this.a = src.a;
+        this.b = src.b;
+        this.points = src.points;
     }
 }

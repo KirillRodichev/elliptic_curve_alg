@@ -15,9 +15,9 @@ public class ShanksTester {
         EllipticCurve e2;
         EllipticCurve e3;
         try {
-            e1 = EllipticCurve.create(toBigInteger(85), toBigInteger(93), toBigInteger(251));
-            e2 = EllipticCurve.create(toBigInteger(109), toBigInteger(24), toBigInteger(151));
-            e3 = EllipticCurve.create(toBigInteger(55), toBigInteger(187), toBigInteger(193));
+            e1 = EllipticCurve.create(toBigInteger(55), toBigInteger(187), toBigInteger(293));
+            e2 = EllipticCurve.create(toBigInteger(109), toBigInteger(24), toBigInteger(232));
+            e3 = EllipticCurve.create(toBigInteger(85), toBigInteger(93), toBigInteger(251));
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }

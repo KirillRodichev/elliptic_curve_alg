@@ -79,12 +79,13 @@ public class Point {
     public Point mul(int multiplier) {
         Point q = new Point(this.x, this.y, this.z, this.m);
         Point r = this.getNull();
-        while (multiplier > 0) {
-            if (toBigInteger(multiplier).mod(toBigInteger(2)).equals(toBigInteger(1))) {
+        BigInteger bMultiplier = toBigInteger(multiplier);
+        while (bMultiplier.compareTo(BigInteger.ZERO) == 1) {
+            if (bMultiplier.mod(toBigInteger(2)).equals(toBigInteger(1))) {
                 r = r.add(q);
             }
             q = q.doublePoint();
-            multiplier /= 2;
+            bMultiplier = bMultiplier.shiftRight(1);
         }
         return r;
     }

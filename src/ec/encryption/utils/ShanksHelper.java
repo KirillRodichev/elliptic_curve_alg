@@ -4,13 +4,13 @@ import ec.encryption.constants.ErrorMessages;
 import ec.encryption.model.Point;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static ec.encryption.utils.ConvertHelper.toBigInteger;
 
 public class ShanksHelper {
+    public static final String BABY_STEP_INDEX = "babyStepIndex";
+    public static final String GIANT_STEP_INDEX = "giantStepIndex";
     private static final double QUARTER = 0.25;
 
     /**
@@ -42,6 +42,7 @@ public class ShanksHelper {
     }
 
     /**
+     * @deprecated
      * @param stepPower W = [p^(1/4) * sqrt(2)] calculated by getStepPower()
      * @param p         Point
      * @return array of 'x' coords of [γ * W]Point
@@ -55,28 +56,22 @@ public class ShanksHelper {
         return giantStepSet;
     }
 
-    public static List<BigInteger> getIntersection(List<BigInteger> set1, List<BigInteger> set2) {
-        Collections.sort(set1);
-        Collections.sort(set2);
-        int i = 0, j = 0;
-        List<BigInteger> intersection = new ArrayList<>();
-        while (i < set1.size() && j < set2.size()) {
-            if (set1.get(i).equals(set2.get(j)) || set1.get(i).compareTo(set2.get(j)) == -1) {
-                if (set1.get(i).equals(set2.get(j))) {
-                    intersection.add(set1.get(i));
-                }
-                i++;
-                while (i < set1.size() - 1 && set1.get(i).equals(set1.get(i - 1))) {
-                    i++;
-                }
-            } else {
-                j++;
-                while (j < set2.size() - 1 && set2.get(j).equals(set2.get(j - 1))) {
-                    j++;
-                }
+    private static BigInteger getGiantStepXCoordByIndex(int stepPower, Point p, int index) {
+        return  p.mul(toBigInteger(index * stepPower).mod(p.getModulus()).intValue()).getX();
+    }
+
+    public static Map<String, BigInteger> getIntersection(int stepPower, Point p) {
+        List<BigInteger> babyStepSet = getBabyStepSet(stepPower, p);
+        Map<String, BigInteger> res = new HashMap<>();
+        Collections.sort(babyStepSet);
+        for (int i = 0; i < babyStepSet.size(); i++) {
+            if (getGiantStepXCoordByIndex(stepPower, p, i).equals(babyStepSet.get(i))) {
+                res.put(BABY_STEP_INDEX, toBigInteger(i));
+                res.put(GIANT_STEP_INDEX, toBigInteger(i));
+                return res;
             }
         }
-        return intersection;
+        return null;
     }
 
     /**
@@ -118,7 +113,7 @@ public class ShanksHelper {
 
     public static BigInteger getNonResidue(BigInteger m) {
         for (BigInteger i = BigInteger.ZERO; i.compareTo(m) == -1; i = i.add(BigInteger.ONE)) {
-            if (getLegendreSymbol(i, m) == -1) {
+            if (getLegendreSymbol(i, m) == -1 && m.gcd(i).equals(BigInteger.ONE)) {
                 return i;
             }
         }

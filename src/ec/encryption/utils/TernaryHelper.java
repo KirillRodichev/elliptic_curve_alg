@@ -1,47 +1,95 @@
 package ec.encryption.utils;
 
 public class TernaryHelper {
-    private static final String NULL = "0";
+    private static final String NULL_STR = "0";
+
+    private static final String STATE_ONE = "state1";
+    private static final String STATE_TWO = "state2";
+    private static final String STATE_THREE = "state3";
+    private static final String STATE_FOUR = "state4";
+    private static final String STATE_FIVE = "state5";
+    private static final String STATE_SIX = "state6";
+    private static final String STATE_SEVEN = "state7";
 
     public static String pushNull(String str) {
-        return str + NULL;
+        return str + NULL_STR;
+    }
+
+    private static void nextState(String state, int pos, int[] bits) {
+        switch (state) {
+            case STATE_ONE:
+                if (pos == bits.length - 1) return;
+                pos++;
+                nextState(STATE_TWO, pos, bits);
+                break;
+            case STATE_TWO:
+                if (bits[pos] == 1) {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_THREE, pos, bits);
+                } else {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_TWO, pos, bits);
+                }
+                break;
+            case STATE_THREE:
+                if (bits[pos] == 1) {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_FOUR, pos, bits);
+                } else {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_TWO, pos, bits);
+                }
+                break;
+            case STATE_FOUR:
+                if (bits[pos] == 1) {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_FOUR, pos, bits);
+                } else {
+                    bits[pos] = 1;
+                    pos--;
+                    nextState(STATE_FIVE, pos, bits);
+                }
+                break;
+            case STATE_FIVE:
+                if (bits[pos] == 1) {
+                    bits[pos] = 0;
+                    if (pos == 0) {
+                        nextState(STATE_SIX, pos, bits);
+                    } else {
+                        pos--;
+                        nextState(STATE_FIVE, pos, bits);
+                    }
+                } else {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_SIX, pos, bits);
+                }
+                break;
+            case STATE_SIX:
+                bits[pos] = -1;
+                nextState(STATE_SEVEN, pos, bits);
+                break;
+            case STATE_SEVEN:
+                if (bits[pos] == 1) {
+                    nextState(STATE_TWO, pos, bits);
+                } else {
+                    if (pos == bits.length - 1) return;
+                    pos++;
+                    nextState(STATE_SEVEN, pos, bits);
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     public static int[] getTernaryExpansion(int[] bits) {
-        for (int i = 0; i < bits.length; ) {
-            if (bits[i] == 0) {
-                int trueBitsCounter = 0;
-                if (i + 1 < bits.length) {
-                    for (int j = i + 1; j < bits.length; j++) {
-                        if (bits[j] == 1) {
-                            if (trueBitsCounter == 1) {
-                                bits[j - 1] = -1;
-                            }
-                            trueBitsCounter++;
-                            if (trueBitsCounter >= 2) {
-                                bits[j] = 0;
-                            }
-                        } else {
-                            if (trueBitsCounter >= 2) {
-                                bits[j] = 1;
-                                if (j != bits.length - 1) { // exclude infinite loop when last bit = 1
-                                    i = j - 1; // set 'i' so that current '1' can be contained in the chain of '1','1',...
-                                } else {
-                                    i = j;
-                                }
-                            } else {
-                                i = j;
-                            }
-                            break;
-                        }
-                    }
-                } else {
-                    break;
-                }
-            } else {
-                i++;
-            }
-        }
+        nextState(STATE_ONE, 0, bits);
         return bits;
     }
 }
